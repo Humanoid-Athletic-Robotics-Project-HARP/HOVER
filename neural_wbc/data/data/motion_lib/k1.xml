@@ -81,7 +81,7 @@
                 <inertial pos="0 0 0" mass="0.039"
                   diaginertia="4e-06 4e-06 2e-06"/>
                 <joint name="Left_Ankle_Pitch" pos="0 0 0" axis="0 1 0" range="-0.87 0.345"/>
-                <body name="left_foot_link">
+                <body name="left_foot_link" pos="0 0 0">
                   <inertial pos="0.011662 0.000244 -0.014364" mass="0.494"
                     diaginertia="0.0012267 0.00117 0.000247305"/>
                   <joint name="Left_Ankle_Roll" pos="0 0 0" axis="1 0 0" range="-0.345 0.345"/>
@@ -112,7 +112,7 @@
                 <inertial pos="0 0 0" mass="0.039"
                   diaginertia="4e-06 4e-06 2e-06"/>
                 <joint name="Right_Ankle_Pitch" pos="0 0 0" axis="0 1 0" range="-0.87 0.345"/>
-                <body name="right_foot_link">
+                <body name="right_foot_link" pos="0 0 0">
                   <inertial pos="0.011662 -0.000244 -0.014364" mass="0.494"
                     diaginertia="0.0012267 0.00117 0.000247305"/>
                   <joint name="Right_Ankle_Roll" pos="0 0 0" axis="1 0 0" range="-0.345 0.345"/>

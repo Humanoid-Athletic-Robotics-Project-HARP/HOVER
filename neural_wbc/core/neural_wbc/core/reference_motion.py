@@ -76,6 +76,8 @@ class ReferenceMotionManagerCfg:
     motion_path: str = ""
     skeleton_path: str = ""
     fk_frame_rotation: Optional[List[float]] = None
+    extend_hand: bool = True
+    extend_head: bool = True
     """Optional wxyz quaternion for MJCF/SMPL axis alignment (typically ``[0.5, 0.5, 0.5, 0.5]`` for K1 AMASS retargeting).
 
     Applies a *similarity transform* to every cached body quaternion, then

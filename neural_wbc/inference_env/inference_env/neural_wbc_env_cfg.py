@@ -45,6 +45,9 @@ class NeuralWBCEnvCfg(Protocol):
     gravity_y_threshold = 0.7
     max_ref_motion_dist = 0.5
 
+    # Name of the root body in the MJCF model (used to get base_id)
+    base_name: str = "torso_link"
+
     # control type: the action type from the policy
     # "Pos": target joint pos, "Torque": joint torques
     # 'None': by passes control and returns same value

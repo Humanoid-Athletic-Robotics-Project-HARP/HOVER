@@ -62,7 +62,8 @@ class NeuralWBCEnv(EnvironmentWrapper):
             device=self.device,
             num_envs=self.num_envs,
             random_sample=(self.cfg.mode.is_training_mode()),
-            extend_head=True,
+            extend_hand=self.cfg.reference_motion_cfg.extend_hand,
+            extend_head=self.cfg.reference_motion_cfg.extend_head,
             dt=self.cfg.decimation * self.cfg.dt,
         )
 
@@ -80,7 +81,7 @@ class NeuralWBCEnv(EnvironmentWrapper):
 
         self._joint_ids = self._robot.get_joint_ids()
         self._body_ids = self._robot.get_body_ids()
-        self._base_name = "torso_link"
+        self._base_name = self.cfg.base_name
         self._base_id = self._body_ids[self._base_name]
 
         self.num_actions = self._robot.num_controls
