@@ -406,7 +406,7 @@ class NeuralWBCEnv(DirectRLEnv):
         )
 
         if self.cfg.add_policy_obs_noise:
-            obs_dic["teacher_policy"] = self._observation_noise_model.apply(obs_dic["teacher_policy"])
+            obs_dic["teacher_policy"] = self._observation_noise_model(obs_dic["teacher_policy"])
 
         return obs_dic
 

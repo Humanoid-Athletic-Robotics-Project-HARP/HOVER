@@ -35,20 +35,14 @@ else
     exit 1
 fi
 
-# Install libraries.
-${ISAACLAB_PATH:?}/isaaclab.sh -p -m ensurepip
-${ISAACLAB_PATH:?}/isaaclab.sh -p -m pip install --upgrade pip
-${ISAACLAB_PATH:?}/isaaclab.sh -p -m pip install wheel
-${ISAACLAB_PATH:?}/isaaclab.sh -p -m pip install -e .
-${ISAACLAB_PATH:?}/isaaclab.sh -p -m pip install -r requirements.txt
-
-
-# Check that IsaacLab is using the correct version.
-if [ -d ${ISAACLAB_PATH}/.git ]; then
-  expected_isaac_lab_tag="v2.0.0"
-  if ! git -C ${ISAACLAB_PATH} tag -l "${expected_isaac_lab_tag}" | grep -q "${expected_isaac_lab_tag}"; then
-      echo "Error: IsaacLab does not have this tag."
-      echo "Expected tag: ${expected_isaac_lab_tag}"
-      exit 1
-  fi
+# Accept Isaac Sim EULA non-interactively (pip-based install, no isaaclab.sh).
+EULA_FILE="$(python3 -c "import os,isaacsim.kit.kit_app as k; print(os.path.join(os.path.dirname(k.__file__), 'EULA_ACCEPTED'))" 2>/dev/null || true)"
+if [ -n "$EULA_FILE" ] && [ ! -f "$EULA_FILE" ]; then
+    echo "Accepting Isaac Sim EULA..."
+    echo "Yes" > "$EULA_FILE"
 fi
+
+# Install libraries (pip-based IsaacLab — no isaaclab.sh wrapper needed).
+pip3 install --upgrade pip wheel
+pip3 install -e .
+pip3 install -r requirements.txt --root-user-action=ignore

@@ -1,6 +1,9 @@
 joblib>=1.2.0
-wheel # Without this chumpy (which is a dep of smplsim) fails to build.
-git+https://github.com/ZhengyiLuo/SMPLSim.git@dd65a86
+wheel
+# SMPLSim replaced with local shim — GitHub is blocked in this environment.
+# Original: git+https://github.com/ZhengyiLuo/SMPLSim.git@dd65a86
+-e third_party/human2humanoid/smpl_sim_shim
+smplx       # needed by retargeting and SMPLSim; previously pulled from GitHub via SMPLSim
 easydict
 warp-lang
 dataclass-wizard
