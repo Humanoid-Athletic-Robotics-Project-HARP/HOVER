@@ -39,10 +39,20 @@ fi
 EULA_FILE="$(python3 -c "import os,isaacsim.kit.kit_app as k; print(os.path.join(os.path.dirname(k.__file__), 'EULA_ACCEPTED'))" 2>/dev/null || true)"
 if [ -n "$EULA_FILE" ] && [ ! -f "$EULA_FILE" ]; then
     echo "Accepting Isaac Sim EULA..."
-    echo "Yes" > "$EULA_FILE"
+    mkdir -p "$(dirname "$EULA_FILE")" && echo "Yes" > "$EULA_FILE"
 fi
 
 # Install libraries (pip-based IsaacLab — no isaaclab.sh wrapper needed).
 pip3 install --upgrade pip wheel
 pip3 install -e .
+# chumpy uses a legacy build system that calls pip internally; --no-build-isolation avoids that.
+pip3 install chumpy --no-build-isolation --root-user-action=ignore
+# Patch chumpy for Python 3.11+ compatibility:
+#   ch.py:      inspect.getargspec removed → getfullargspec
+#   __init__.py: numpy removed bool/int/float/... aliases
+CHUMPY_DIR=$(python3 -c "import os, chumpy; print(os.path.dirname(chumpy.__file__))" 2>/dev/null || true)
+if [ -n "$CHUMPY_DIR" ]; then
+    sed -i 's/inspect\.getargspec/inspect.getfullargspec/g' "$CHUMPY_DIR/ch.py"
+    sed -i 's/from numpy import bool, int, float, complex, object, unicode, str, nan, inf/from numpy import nan, inf/g' "$CHUMPY_DIR/__init__.py"
+fi
 pip3 install -r requirements.txt --root-user-action=ignore

@@ -6,6 +6,7 @@
 # Retarget AMASS dataset to Booster K1 robot.
 # Analogous to retarget_h1.sh but for the K1 skeleton.
 
+HOVER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HUMAN2HUMANOID_DIR="third_party/human2humanoid"
 AMASS_DIR="$HUMAN2HUMANOID_DIR/data/AMASS/AMASS_Complete"
 SMPL_DIR="$HUMAN2HUMANOID_DIR/data/smpl"
@@ -123,13 +124,13 @@ prepare_filtered_motions() {
 retarget() {
     echo "Installing retargeting dependencies (offline, no GitHub)..."
     pip3 install smplx easydict --no-deps --quiet || true
-    pip3 install -e smpl_sim_shim --no-deps --quiet || true
+    pip3 install -e ../smpl_sim_shim --no-deps --quiet || true
     pip3 install -e phc --no-deps --quiet || true
     python3 -c "import smpl_sim, smplx, phc, easydict" || { echo "Critical retargeting packages missing. Aborting."; return 1; }
 
     # Step 1: Fit SMPL shape to K1 proportions
     echo "Running grad_fit_k1_shape.py..."
-    python3 scripts/data_process/grad_fit_k1_shape.py || return 1
+    python3 "$HOVER_ROOT/scripts/data_process/grad_fit_k1_shape.py" || return 1
 
     # Step 2: Retarget AMASS to K1
     local amass_dir="data/AMASS/AMASS_Complete"
@@ -140,7 +141,7 @@ retarget() {
     fi
 
     echo "Running grad_fit_k1.py on $amass_dir..."
-    python3 scripts/data_process/grad_fit_k1.py --amass_root "$amass_dir" || return 1
+    python3 "$HOVER_ROOT/scripts/data_process/grad_fit_k1.py" --amass_root "$amass_dir" || return 1
 
     return 0
 }

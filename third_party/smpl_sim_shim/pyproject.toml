@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smpl_sim"
+version = "0.1.0"
+description = "Shim redirecting smpl_sim.poselib to /workspace/GMR/third_party/poselib"
+
+[tool.setuptools.packages.find]
+where = ["."]
