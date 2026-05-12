@@ -56,3 +56,10 @@ if [ -n "$CHUMPY_DIR" ]; then
     sed -i 's/from numpy import bool, int, float, complex, object, unicode, str, nan, inf/from numpy import nan, inf/g' "$CHUMPY_DIR/__init__.py"
 fi
 pip3 install -r requirements.txt --root-user-action=ignore
+
+# Install git hooks so post-push auto-bumps the submodule pointer in testing-grounds.
+GIT_HOOKS_DIR="$(git rev-parse --git-dir 2>/dev/null)/hooks" || true
+if [ -n "$GIT_HOOKS_DIR" ]; then
+    ln -sf "$(pwd)/.githooks/post-push" "${GIT_HOOKS_DIR}/post-push"
+    echo "Installed post-push hook."
+fi

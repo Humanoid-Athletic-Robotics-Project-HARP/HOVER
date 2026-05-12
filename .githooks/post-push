@@ -1,0 +1,19 @@
+#!/bin/bash
+# After pushing hover, automatically bump the submodule pointer in testing-grounds.
+PARENT_REPO="$(git rev-parse --show-superproject-working-tree 2>/dev/null)"
+
+if [ -z "$PARENT_REPO" ]; then
+    exit 0
+fi
+
+echo "[post-push] Updating hover submodule pointer in $PARENT_REPO..."
+cd "$PARENT_REPO" || exit 0
+git submodule update --remote projects/hover
+git add projects/hover
+if git diff --cached --quiet; then
+    echo "[post-push] Submodule pointer already up to date."
+else
+    git commit -m "auto: bump hover submodule to $(git -C projects/hover rev-parse --short HEAD)"
+    git push
+    echo "[post-push] testing-grounds updated and pushed."
+fi
