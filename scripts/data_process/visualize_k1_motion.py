@@ -38,7 +38,7 @@ def xyzw_to_wxyz(q):
 def build_skeleton_edges(model):
     edges = []
     for i in range(1, model.nbody):
-        p = int(model.body(i).parentid)
+        p = model.body(i).parentid.item()
         if p >= 1:
             edges.append((p, i))
     return edges
@@ -75,10 +75,10 @@ def _add_capsule(scene, p0, p1, radius, rgba):
         g, mujoco.mjtGeom.mjGEOM_CAPSULE,
         np.zeros(3), np.zeros(3), np.eye(3).flatten(), rgba,
     )
-    mujoco.mjv_makeConnector(
+    mujoco.mjv_connector(
         g, mujoco.mjtGeom.mjGEOM_CAPSULE, radius,
-        p0[0], p0[1], p0[2],
-        p1[0], p1[1], p1[2],
+        p0.astype(np.float64),
+        p1.astype(np.float64),
     )
     g.rgba[:] = rgba
     g.matid = -1
@@ -109,8 +109,6 @@ def _inject_lights(scene, lookat):
         if base + k >= scene.nlight:
             break
         lt = scene.lights[base + k]
-        lt.directional = True
-        lt.castshadow  = False
         lt.pos[:]      = cfg["pos"]
         lt.dir[:]      = cfg["dir"]
         lt.ambient[:]  = [cfg["amb"]] * 3
