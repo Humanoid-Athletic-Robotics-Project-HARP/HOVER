@@ -1,9 +1,6 @@
 """
 Render a retargeted K1 motion clip to a GIF using MuJoCo offscreen renderer.
 
-The K1 MJCF has no visual geometry, so the skeleton is drawn as capsule + sphere
-geoms injected into the MjvScene after each update_scene call via mjv_makeConnector.
-
 Usage (from hover root):
     python3 scripts/data_process/visualize_k1_motion.py
     python3 scripts/data_process/visualize_k1_motion.py --clip 0-CMU_09_09_12_poses --every 2
@@ -21,79 +18,15 @@ import imageio
 from tqdm import tqdm
 
 _HOVER_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-K1_MJCF   = os.path.join(_HOVER_DIR, "neural_wbc/data/data/motion_lib/k1.xml")
+K1_MJCF   = os.path.join(_HOVER_DIR, "third_party/booster_assets/robots/K1/K1_22dof.xml")
 AMASS_PKL = os.path.join(_HOVER_DIR, "third_party/human2humanoid/data/k1/amass_all.pkl")
 
 WIDTH  = 640
 HEIGHT = 480
 
-BONE_RADIUS  = 0.025
-JOINT_RADIUS = 0.035
-
 
 def xyzw_to_wxyz(q):
     return q[..., [3, 0, 1, 2]]
-
-
-def build_skeleton_edges(model):
-    edges = []
-    for i in range(1, model.nbody):
-        p = model.body(i).parentid.item()
-        if p >= 1:
-            edges.append((p, i))
-    return edges
-
-
-def _body_rgba(idx, left_bodies, right_bodies):
-    if idx in left_bodies:
-        return np.array([0.2, 0.55, 1.0, 1.0], dtype=np.float32)
-    if idx in right_bodies:
-        return np.array([1.0, 0.3, 0.3, 1.0], dtype=np.float32)
-    return np.array([0.85, 0.85, 0.85, 1.0], dtype=np.float32)
-
-
-def _add_sphere(scene, pos, radius, rgba):
-    if scene.ngeom >= scene.maxgeom:
-        return
-    g = scene.geoms[scene.ngeom]
-    mujoco.mjv_initGeom(
-        g, mujoco.mjtGeom.mjGEOM_SPHERE,
-        np.array([radius, 0.0, 0.0]),
-        pos.astype(np.float64),
-        np.eye(3).flatten(),
-        rgba,
-    )
-    g.matid = -1
-    scene.ngeom += 1
-
-
-def _add_capsule(scene, p0, p1, radius, rgba):
-    if scene.ngeom >= scene.maxgeom:
-        return
-    g = scene.geoms[scene.ngeom]
-    mujoco.mjv_initGeom(
-        g, mujoco.mjtGeom.mjGEOM_CAPSULE,
-        np.zeros(3), np.zeros(3), np.eye(3).flatten(), rgba,
-    )
-    mujoco.mjv_connector(
-        g, mujoco.mjtGeom.mjGEOM_CAPSULE, radius,
-        p0.astype(np.float64),
-        p1.astype(np.float64),
-    )
-    g.rgba[:] = rgba
-    g.matid = -1
-    scene.ngeom += 1
-
-
-def _draw_skeleton(scene, xpos, edges, left_bodies, right_bodies):
-    # Spheres at each joint
-    for i in range(1, len(xpos)):
-        _add_sphere(scene, xpos[i], JOINT_RADIUS, _body_rgba(i, left_bodies, right_bodies))
-
-    # Capsule bones
-    for p, c in edges:
-        rgba = _body_rgba(c, left_bodies, right_bodies)
-        _add_capsule(scene, xpos[p], xpos[c], BONE_RADIUS, rgba)
 
 
 def _inject_lights(scene, lookat):
@@ -137,13 +70,7 @@ def render_clip(clip_key, out_path, fps_out=30, every_nth=1, data_all=None,
     print("Loading MuJoCo model...", flush=True)
     model = mujoco.MjModel.from_xml_path(K1_MJCF)
     data  = mujoco.MjData(model)
-    edges = build_skeleton_edges(model)
-
-    left_bodies  = {i for i in range(model.nbody) if "left"  in model.body(i).name.lower()}
-    right_bodies = {i for i in range(model.nbody) if "right" in model.body(i).name.lower()}
-
-    # K1 has 0 physics geoms; allocate plenty of slots for our injected skeleton
-    renderer = mujoco.Renderer(model, height=HEIGHT, width=WIDTH, max_geom=300)
+    renderer = mujoco.Renderer(model, height=HEIGHT, width=WIDTH)
 
     cam           = mujoco.MjvCamera()
     cam.type      = mujoco.mjtCamera.mjCAMERA_FREE
@@ -163,10 +90,7 @@ def render_clip(clip_key, out_path, fps_out=30, every_nth=1, data_all=None,
         cam.lookat[:] = [trunk[0], trunk[1], trunk[2] * 0.55]
 
         renderer.update_scene(data, camera=cam)
-
         _inject_lights(renderer.scene, np.array(cam.lookat))
-        _draw_skeleton(renderer.scene, data.xpos, edges, left_bodies, right_bodies)
-
         pixels = renderer.render()
         images.append(pixels.copy())
 

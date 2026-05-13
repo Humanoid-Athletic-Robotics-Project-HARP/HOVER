@@ -1,5 +1,58 @@
-# CMU mocap: subject 13 = martial arts / punching, subject 38 = boxing
-# Subjects 09, 10, 15 = walking (locomotion foundation)
+# CMU mocap punch/combat dataset
+#
+# Subject 144: punching female (30 trials) — primary punch motion source
+# Subject 135: martial arts walks (10 trials) — fighting-style locomotion
+# Subject 13:  various everyday behaviors (42 trials) — general upper-body variety
+# Subject 38:  walk, run (4 trials) — locomotion
+# Subject 09:  run (12 trials) — locomotion
+# Subject 10:  kick soccer ball (6 trials) — dynamic leg motion
+# Subject 15:  various everyday behaviors, dance (14 trials) — general variety
+
+# --- Punching (primary) ---
+- "CMU/144/144_01_poses.npz"
+- "CMU/144/144_02_poses.npz"
+- "CMU/144/144_03_poses.npz"
+- "CMU/144/144_04_poses.npz"
+- "CMU/144/144_05_poses.npz"
+- "CMU/144/144_06_poses.npz"
+- "CMU/144/144_07_poses.npz"
+- "CMU/144/144_08_poses.npz"
+- "CMU/144/144_09_poses.npz"
+- "CMU/144/144_10_poses.npz"
+- "CMU/144/144_11_poses.npz"
+- "CMU/144/144_12_poses.npz"
+- "CMU/144/144_13_poses.npz"
+- "CMU/144/144_14_poses.npz"
+- "CMU/144/144_15_poses.npz"
+- "CMU/144/144_16_poses.npz"
+- "CMU/144/144_17_poses.npz"
+- "CMU/144/144_18_poses.npz"
+- "CMU/144/144_19_poses.npz"
+- "CMU/144/144_20_poses.npz"
+- "CMU/144/144_21_poses.npz"
+- "CMU/144/144_22_poses.npz"
+- "CMU/144/144_23_poses.npz"
+- "CMU/144/144_24_poses.npz"
+- "CMU/144/144_25_poses.npz"
+- "CMU/144/144_26_poses.npz"
+- "CMU/144/144_27_poses.npz"
+- "CMU/144/144_28_poses.npz"
+- "CMU/144/144_29_poses.npz"
+- "CMU/144/144_30_poses.npz"
+
+# --- Martial arts walks ---
+- "CMU/135/135_02_poses.npz"
+- "CMU/135/135_03_poses.npz"
+- "CMU/135/135_04_poses.npz"
+- "CMU/135/135_05_poses.npz"
+- "CMU/135/135_06_poses.npz"
+- "CMU/135/135_07_poses.npz"
+- "CMU/135/135_08_poses.npz"
+- "CMU/135/135_09_poses.npz"
+- "CMU/135/135_10_poses.npz"
+- "CMU/135/135_11_poses.npz"
+
+# --- Everyday behaviors (upper-body variety) ---
 - "CMU/13/13_01_poses.npz"
 - "CMU/13/13_02_poses.npz"
 - "CMU/13/13_03_poses.npz"
@@ -42,6 +95,8 @@
 - "CMU/13/13_40_poses.npz"
 - "CMU/13/13_41_poses.npz"
 - "CMU/13/13_42_poses.npz"
+
+# --- Locomotion ---
 - "CMU/38/38_01_poses.npz"
 - "CMU/38/38_02_poses.npz"
 - "CMU/38/38_03_poses.npz"

@@ -56,10 +56,13 @@ K1_BODY_NAMES = [
     'Right_Hip_Pitch', 'Right_Hip_Roll', 'Right_Hip_Yaw', 'Right_Shank', 'Right_Ankle_Cross', 'right_foot_link',
 ]
 
+# Left_Arm_1 is K1's shoulder joint body — at (0, 0.077, 0.185) from trunk, which
+# matches arm_scale × SMPL L_Shoulder to within ~8mm at T-pose.
+# Left_Arm_3 is the forearm body (0.189m lateral) and was causing 120mm geometric error.
 k1_joint_pick  = ['Trunk', 'Left_Shank', 'left_foot_link', 'Right_Shank', 'right_foot_link',
-                  'Left_Arm_2', 'Left_Arm_3', 'left_hand_link', 'Right_Arm_2', 'Right_Arm_3', 'right_hand_link']
+                  'Left_Arm_1', 'left_hand_link', 'Right_Arm_1', 'right_hand_link']
 smpl_joint_pick = ['Pelvis', 'L_Knee', 'L_Ankle', 'R_Knee', 'R_Ankle',
-                   'L_Shoulder', 'L_Elbow', 'L_Hand', 'R_Shoulder', 'R_Elbow', 'R_Hand']
+                   'L_Shoulder', 'L_Elbow', 'R_Shoulder', 'R_Elbow']
 k1_joint_pick_idx   = [K1_BODY_NAMES.index(j) for j in k1_joint_pick]
 smpl_joint_pick_idx = [SMPL_BONE_ORDER_NAMES.index(j) for j in smpl_joint_pick]
 
@@ -92,8 +95,10 @@ if __name__ == "__main__":
     smpl_parser_n = SMPL_Parser(model_path=_SMPL_DATA_PATH, gender="neutral")
     smpl_parser_n.to(device)
 
-    shape_new, scale = joblib.load(osp.join(_K1_DATA_DIR, "shape_optimized_v1.pkl"))
-    shape_new = shape_new.to(device)
+    shape_new, leg_scale, arm_scale = joblib.load(osp.join(_K1_DATA_DIR, "shape_optimized_v1.pkl"))
+    shape_new  = shape_new.to(device)
+    leg_scale  = leg_scale.to(device)
+    arm_scale  = arm_scale.to(device)
 
     k1_fk = Humanoid_Batch(mjcf_file=K1_MJCF, extend_hand=False, extend_head=False, device=device)
     k1_rot_axis = K1_ROTATION_AXIS.to(device)
@@ -130,24 +135,66 @@ if __name__ == "__main__":
             (sRot.from_rotvec(pose_aa_walk.cpu().numpy()[:, :3]) * sRot.from_quat(SMPL_ROOT_ALIGN_QUAT).inv()).as_rotvec()
         ).float().to(device)
 
-        dof_pos_new = Variable(torch.zeros((1, N, 22, 1)).to(device), requires_grad=True)
+        # Precompute SMPL targets once (outside the iteration loop).
+        with torch.no_grad():
+            _, joints = smpl_parser_n.get_joints_verts(pose_aa_walk, shape_new, trans)
+        root_pos = joints[:, 0:1]
+        # Per-limb scale: leg targets at leg_scale (0.585), arm targets at arm_scale (0.395).
+        # Uniform 0.6 leaves arm targets ~50% beyond K1's reach (arm_scale << 0.6).
+        _s = torch.ones(9, device=device)
+        _s[:5] = leg_scale     # Trunk, L_Knee, L_Ankle, R_Knee, R_Ankle
+        _s[5:] = arm_scale     # L_Shoulder, L_Elbow, R_Shoulder, R_Elbow
+        joints_scaled = (joints[:, smpl_joint_pick_idx] - root_pos) * _s[None, :, None] + root_pos
+
+        # A-pose init: tilt arms ~45° down so shoulder pitch (Y axis) is no
+        # longer collinear with the arm, breaking the T-pose singularity.
+        init = torch.zeros((1, N, 22, 1), device=device)
+        init[0, :, 3, 0] = -np.pi / 3   # Left_Shoulder_Roll (~60° down)
+        init[0, :, 7, 0] = np.pi / 3    # Right_Shoulder_Roll (~60° down)
+        dof_pos_new = Variable(init, requires_grad=True)
         optimizer = torch.optim.Adadelta([dof_pos_new], lr=100)
 
         for iteration in range(500):
-            verts, joints = smpl_parser_n.get_joints_verts(pose_aa_walk, shape_new, trans)
             pose_aa_k1_new = torch.cat(
                 [gt_root_rot[None, :, None], k1_rot_axis * dof_pos_new], dim=2
-            ).to(device)
+            )
             fk_return = k1_fk.fk_batch(pose_aa_k1_new, root_trans_offset[None,])
+            diff = fk_return.global_translation[:, :, k1_joint_pick_idx] - joints_scaled
 
-            diff = fk_return.global_translation[:, :, k1_joint_pick_idx] - joints[:, smpl_joint_pick_idx]
-            loss = diff.norm(dim=-1).mean()
-            pbar.set_description_str(f"{iteration} {loss.item() * 1000:.2f}")
+            # Legs/trunk (targets 0-4): mean over frames — well-scaled for smooth convergence.
+            # Arms (targets 5-8): sum over frames — avoids the 1/N gradient dilution that
+            # keeps shoulder pitch stuck at the T-pose singularity.
+            # These two subsets don't share DOFs so there is no cross-contamination.
+            leg_loss = diff[:, :, :5].norm(dim=-1).mean()
+            arm_loss = diff[:, :, 5:].norm(dim=-1).mean(dim=-1).sum()
+            loss = leg_loss + arm_loss
+            pbar.set_description_str(
+                f"{iteration} legs={leg_loss.item()*1000:.1f} arms={arm_loss.item()/N*1000:.1f}"
+            )
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             dof_pos_new.data.clamp_(k1_fk.joints_range[:, 0, None], k1_fk.joints_range[:, 1, None])
+
+        dof_pos_new.data.clamp_(k1_fk.joints_range[:, 0, None], k1_fk.joints_range[:, 1, None])
+
+        # Phase 2: arm-only refinement — legs have converged; give arms more budget.
+        for iteration in range(300):
+            pose_aa_k1_new = torch.cat(
+                [gt_root_rot[None, :, None], k1_rot_axis * dof_pos_new], dim=2
+            )
+            fk_return = k1_fk.fk_batch(pose_aa_k1_new, root_trans_offset[None,])
+            diff = fk_return.global_translation[:, :, k1_joint_pick_idx] - joints_scaled
+            arm_loss = diff[:, :, 5:].norm(dim=-1).mean(dim=-1).sum()
+
+            optimizer.zero_grad()
+            arm_loss.backward()
+            dof_pos_new.grad[:, :, :10, :].zero_()   # freeze head + legs
+            optimizer.step()
+            dof_pos_new.data.clamp_(k1_fk.joints_range[:, 0, None], k1_fk.joints_range[:, 1, None])
+            if iteration % 100 == 0:
+                pbar.set_description_str(f"arm-refine {iteration} {arm_loss.item()/N*1000:.1f}mm")
 
         dof_pos_new.data.clamp_(k1_fk.joints_range[:, 0, None], k1_fk.joints_range[:, 1, None])
         pose_aa_k1_new = torch.cat(

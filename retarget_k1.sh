@@ -84,12 +84,7 @@ prepare_filtered_motions() {
     local yaml_file=$1
     if [ -f "$yaml_file" ]; then
         if [ -d "$AMASS_FILTERED_DIR" ] && [ "$(ls -A $AMASS_FILTERED_DIR)" ]; then
-            read -p "Filtered motion files already exist. Keep them? [y/N] " response
-            if [[ ! $response =~ ^[Yy]$ ]]; then
-                rm -rf "$AMASS_FILTERED_DIR"/*
-            else
-                return
-            fi
+            rm -rf "$AMASS_FILTERED_DIR"/*
         fi
 
         echo "Preparing filtered motions from $yaml_file..."
@@ -157,7 +152,7 @@ print_usage() {
     echo "  $0 --motions-file motions.yaml"
 }
 
-YAML_FILE=""
+YAML_FILE="$HOVER_ROOT/cmu_punch.yaml"
 while [[ $# -gt 0 ]]; do
     case $1 in
         --motions-file)

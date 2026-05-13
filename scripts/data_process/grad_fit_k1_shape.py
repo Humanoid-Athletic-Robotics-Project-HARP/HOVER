@@ -1,17 +1,25 @@
+"""
+Compute per-limb scale factors that map SMPL joint positions to K1 proportions.
+
+K1 is ~58% of human height for legs and ~39% for arms — a single global scale
+can't serve both, so we compute leg_scale and arm_scale separately from the
+robot's actual MJCF geometry vs default SMPL joint positions.
+
+No gradient-based optimization is used; the scales are derived analytically.
+"""
 import os
 import sys
 import os.path as osp
 sys.path.append(os.getcwd())
 
 import joblib
+import mujoco
 import numpy as np
 import torch
 from scipy.spatial.transform import Rotation as sRot
-from torch.autograd import Variable
 
 from phc.utils import torch_utils  # noqa: F401 — registers torch extensions
 from phc.smpllib.smpl_parser import SMPL_Parser, SMPL_BONE_ORDER_NAMES
-from phc.utils.torch_h1_humanoid_batch import Humanoid_Batch
 
 _HERE = osp.dirname(osp.abspath(__file__))
 _HOVER_ROOT = osp.normpath(osp.join(_HERE, "..", ".."))
@@ -20,89 +28,64 @@ K1_MJCF = osp.join(_HOVER_ROOT, "neural_wbc", "data", "data", "motion_lib", "k1.
 _SMPL_DATA_PATH = osp.join(_H2H_ROOT, "data", "smpl")
 _K1_OUT_DIR = osp.join(_H2H_ROOT, "data", "k1")
 
-# Joint rotation axes in MJCF depth-first order (matches Humanoid_Batch.from_mjcf).
-K1_ROTATION_AXIS = torch.tensor([[
-    [0, 0, 1],  # AAHead_yaw
-    [0, 1, 0],  # Head_pitch
-    [0, 1, 0],  # ALeft_Shoulder_Pitch
-    [1, 0, 0],  # Left_Shoulder_Roll
-    [0, 1, 0],  # Left_Elbow_Pitch
-    [0, 0, 1],  # Left_Elbow_Yaw
-    [0, 1, 0],  # ARight_Shoulder_Pitch
-    [1, 0, 0],  # Right_Shoulder_Roll
-    [0, 1, 0],  # Right_Elbow_Pitch
-    [0, 0, 1],  # Right_Elbow_Yaw
-    [0, 1, 0],  # Left_Hip_Pitch
-    [1, 0, 0],  # Left_Hip_Roll
-    [0, 0, 1],  # Left_Hip_Yaw
-    [0, 1, 0],  # Left_Knee_Pitch
-    [0, 1, 0],  # Left_Ankle_Pitch
-    [1, 0, 0],  # Left_Ankle_Roll
-    [0, 1, 0],  # Right_Hip_Pitch
-    [1, 0, 0],  # Right_Hip_Roll
-    [0, 0, 1],  # Right_Hip_Yaw
-    [0, 1, 0],  # Right_Knee_Pitch
-    [0, 1, 0],  # Right_Ankle_Pitch
-    [1, 0, 0],  # Right_Ankle_Roll
-]])  # (1, 22, 3)
 
-# Body names in MJCF depth-first traversal order.
-K1_BODY_NAMES = [
-    'Trunk',
-    'Head_1', 'Head_2',
-    'Left_Arm_1', 'Left_Arm_2', 'Left_Arm_3', 'left_hand_link',
-    'Right_Arm_1', 'Right_Arm_2', 'Right_Arm_3', 'right_hand_link',
-    'Left_Hip_Pitch', 'Left_Hip_Roll', 'Left_Hip_Yaw', 'Left_Shank', 'Left_Ankle_Cross', 'left_foot_link',
-    'Right_Hip_Pitch', 'Right_Hip_Roll', 'Right_Hip_Yaw', 'Right_Shank', 'Right_Ankle_Cross', 'right_foot_link',
-]
+def _k1_body_pos(model, data, name):
+    return data.xpos[model.body(name).id].copy()
 
-# Shape fitting uses only pelvis+legs. Arms are excluded because K1's zero-pose
-# arms don't match SMPL T-pose, which would bias the limb-length fit.
-k1_joint_pick   = ['Trunk', 'Left_Hip_Pitch', 'Left_Shank', 'left_foot_link',
-                   'Right_Hip_Pitch', 'Right_Shank', 'right_foot_link']
-smpl_joint_pick = ['Pelvis', 'L_Hip', 'L_Knee', 'L_Ankle',
-                   'R_Hip', 'R_Knee', 'R_Ankle']
-k1_joint_pick_idx   = [K1_BODY_NAMES.index(j) for j in k1_joint_pick]
-smpl_joint_pick_idx = [SMPL_BONE_ORDER_NAMES.index(j) for j in smpl_joint_pick]
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# --- K1 geometry at zero pose ---
+m = mujoco.MjModel.from_xml_path(K1_MJCF)
+d = mujoco.MjData(m)
+mujoco.mj_forward(m, d)
 
-k1_fk = Humanoid_Batch(mjcf_file=K1_MJCF, extend_hand=False, extend_head=False, device=device)
+trunk  = _k1_body_pos(m, d, "Trunk")
+shank  = _k1_body_pos(m, d, "Left_Shank")      # knee
+foot   = _k1_body_pos(m, d, "left_foot_link")   # ankle
+arm1   = _k1_body_pos(m, d, "Left_Arm_1")       # shoulder complex
+arm3   = _k1_body_pos(m, d, "Left_Arm_3")       # upper arm
+hand   = _k1_body_pos(m, d, "left_hand_link")   # hand
 
-# K1 at zero pose (standing, all DOFs = 0): pose is (1, 23, 3) — root + 22 joints.
-dof_pos = torch.zeros((1, 22))
-pose_aa_k1 = torch.cat([torch.zeros((1, 1, 3)), K1_ROTATION_AXIS * dof_pos[..., None]], dim=1)
+k1_knee_z   = shank[2] - trunk[2]   # negative (below trunk)
+k1_ankle_z  = foot[2]  - trunk[2]   # negative (below trunk)
+k1_arm_len  = float(np.linalg.norm(arm3 - arm1) + np.linalg.norm(hand - arm3))
 
-# SMPL standing pose with root aligned to K1 convention.
+# --- SMPL geometry at zero betas, standing ---
+smpl = SMPL_Parser(model_path=_SMPL_DATA_PATH, gender="neutral")
 pose_aa_stand = np.zeros((1, 72))
 pose_aa_stand[:, :3] = sRot.from_quat([0.5, 0.5, 0.5, 0.5]).as_rotvec()
-pose_aa_stand = torch.from_numpy(pose_aa_stand.reshape(-1, 72))
+_, joints = smpl.get_joints_verts(
+    torch.from_numpy(pose_aa_stand), torch.zeros(1, 10), torch.zeros(1, 3)
+)
+j = joints[0]
 
-smpl_parser_n = SMPL_Parser(model_path=_SMPL_DATA_PATH, gender="neutral")
-trans = torch.zeros([1, 3])
+def _ji(name): return SMPL_BONE_ORDER_NAMES.index(name)
 
-verts, joints = smpl_parser_n.get_joints_verts(pose_aa_stand, torch.zeros([1, 10]), trans)
-root_trans_offset = trans + (joints[:, 0] - trans)
+pelvis   = j[_ji("Pelvis")]
+smpl_knee_z  = float(j[_ji("L_Knee")][2]  - pelvis[2])   # negative
+smpl_ankle_z = float(j[_ji("L_Ankle")][2] - pelvis[2])   # negative
+smpl_arm_len = float(
+    (j[_ji("L_Elbow")] - j[_ji("L_Shoulder")]).norm() +
+    (j[_ji("L_Hand")]  - j[_ji("L_Elbow")]).norm()
+)
 
-fk_return = k1_fk.fk_batch(pose_aa_k1[None,].to(device), root_trans_offset[None, 0:1].to(device))
+# --- Analytical scales ---
+# Use average of knee- and ankle-based ratios for leg scale stability.
+leg_scale = float(
+    0.5 * (k1_knee_z / smpl_knee_z) + 0.5 * (k1_ankle_z / smpl_ankle_z)
+)
+arm_scale = float(k1_arm_len / smpl_arm_len)
 
-shape_new = Variable(torch.zeros([1, 10]).to(device), requires_grad=True)
-scale     = Variable(torch.ones([1]).to(device),      requires_grad=True)
-optimizer = torch.optim.Adam([shape_new, scale], lr=0.1)
+print(f"K1  knee z-offset from trunk : {k1_knee_z:.4f}m  |  ankle: {k1_ankle_z:.4f}m")
+print(f"SMPL knee z-offset from pelvis: {smpl_knee_z:.4f}m  |  ankle: {smpl_ankle_z:.4f}m")
+print(f"K1  arm chain : {k1_arm_len:.4f}m  |  SMPL arm chain: {smpl_arm_len:.4f}m")
+print(f"leg_scale = {leg_scale:.4f}   arm_scale = {arm_scale:.4f}")
 
-for i in range(1000):
-    verts, joints = smpl_parser_n.get_joints_verts(pose_aa_stand, shape_new.cpu(), trans[0:1])
-    joints = joints.to(device)
-    root_pos = joints[:, 0]
-    joints = (joints - joints[:, 0]) * scale + root_pos
-    loss = (fk_return.global_translation[:, :, k1_joint_pick_idx] - joints[:, smpl_joint_pick_idx]).norm(dim=-1).mean()
-    if i % 100 == 0:
-        print(i, loss.item() * 1000)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+# shape_new is zeros — neutral human shape; per-limb scale handles size difference.
+shape_new = torch.zeros(1, 10)
+leg_scale_t = torch.tensor([leg_scale])
+arm_scale_t = torch.tensor([arm_scale])
 
 os.makedirs(_K1_OUT_DIR, exist_ok=True)
 out_path = osp.join(_K1_OUT_DIR, "shape_optimized_v1.pkl")
-joblib.dump((shape_new.detach().cpu(), scale.detach().cpu()), out_path)
-print(f"shape fitted and saved to {out_path}")
+joblib.dump((shape_new, leg_scale_t, arm_scale_t), out_path)
+print(f"Scales saved to {out_path}")
