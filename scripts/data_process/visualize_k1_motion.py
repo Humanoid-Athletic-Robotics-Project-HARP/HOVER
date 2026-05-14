@@ -106,8 +106,8 @@ if __name__ == "__main__":
     parser.add_argument("--out",   default=os.path.join(
                             os.path.dirname(os.path.abspath(__file__)), "out.gif"))
     parser.add_argument("--fps",   type=int, default=30)
-    parser.add_argument("--every", type=int, default=1,
-                        help="Use every Nth frame (2 = half-length GIF)")
+    parser.add_argument("--every", type=int, default=10,
+                        help="Use every Nth frame (10 = default, shorter GIF)")
     parser.add_argument("--azimuth",   type=float, default=135.0)
     parser.add_argument("--elevation", type=float, default=-20.0)
     parser.add_argument("--distance",  type=float, default=3.5)

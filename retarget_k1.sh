@@ -112,7 +112,7 @@ prepare_filtered_motions() {
                     fi
                 fi
             fi
-        done < <(grep -o '"[^"]*"' "$yaml_file")
+        done < <(grep -v '^\s*#' "$yaml_file" | grep -o '"[^"]*"')
     fi
 }
 
