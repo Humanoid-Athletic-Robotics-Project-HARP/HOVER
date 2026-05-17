@@ -15,4 +15,3 @@
 
 # Needed to have the robot registry 'activated'
 from hw_wrappers.unitree_h1 import UnitreeH1  # noqa
-from hw_wrappers.booster_k1 import BoosterK1  # noqa

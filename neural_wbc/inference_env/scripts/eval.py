@@ -19,7 +19,6 @@ import yaml
 
 from inference_env.deployment_player import DeploymentPlayer
 from inference_env.neural_wbc_env_cfg_h1 import NeuralWBCEnvCfgH1
-from inference_env.neural_wbc_env_cfg_k1 import NeuralWBCEnvCfgK1
 from inference_env.utils import get_player_args
 
 from neural_wbc.core.evaluator import Evaluator
@@ -32,8 +31,6 @@ args_cli = parser.parse_args()
 
 
 def _build_env_cfg(robot: str):
-    if robot == "k1":
-        return NeuralWBCEnvCfgK1(model_xml_path=get_data_path("mujoco/models/scene_k1.xml"))
     return NeuralWBCEnvCfgH1(model_xml_path=get_data_path("mujoco/models/scene.xml"))
 
 

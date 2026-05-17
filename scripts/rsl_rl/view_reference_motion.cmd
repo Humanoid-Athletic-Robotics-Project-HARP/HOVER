@@ -19,7 +19,7 @@ REM List clips without Kit:  python scripts\rsl_rl\view_reference_motion.py --li
 REM Headless MP4 (same Kit as training play): add --record_video  (optional: --video_dir "%HOVER_ROOT%\logs\reference_motion_preview")
 
 "%ISAACLAB_BAT%" -p "%HOVER_ROOT%\scripts\rsl_rl\view_reference_motion.py" ^
-  --robot k1 ^
+  --robot h1 ^
   --reference_motion_path "%MOTION_PKL%" ^
   --clip_index %CLIP_INDEX%
 

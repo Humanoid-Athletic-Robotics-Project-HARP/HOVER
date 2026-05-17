@@ -25,7 +25,7 @@ REM Default: headless + MP4s + TRAIN-like random motions on reset (like teacher 
 REM Add --debug_spawn to print env0 root quat / projected gravity vs reference (spot upside-down spawn vs policy collapse).
 REM GUI Kit often fails on py3.11+Sim4.5 — add --gui only if it starts on your machine.
 "%ISAACLAB_BAT%" -p "%HOVER_ROOT%\scripts\rsl_rl\play.py" ^
-  --robot k1 ^
+  --robot h1 ^
   --num_envs 8 ^
   --teacher_policy.resume_path "%RUN_DIR%" ^
   --teacher_policy.checkpoint "%CHECKPOINT%"

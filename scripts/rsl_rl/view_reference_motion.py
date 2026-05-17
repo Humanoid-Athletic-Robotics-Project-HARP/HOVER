@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Preview retargeted motion clips in Isaac Lab / Isaac Sim (no policy, no training).
+# Preview reference motion clips in Isaac Lab / Isaac Sim (no policy, no training).
 #
 # Usage (same isaaclab.bat / Kit as training):
-#   isaaclab.bat -p scripts/rsl_rl/view_reference_motion.py --robot k1 --reference_motion_path <path/to/amass_all.pkl>
+#   isaaclab.bat -p scripts/rsl_rl/view_reference_motion.py --robot h1 --reference_motion_path <path/to/amass_all.pkl>
 #
 # Headless MP4 (same Kit path as teacher play/training — no live viewport):
-#   isaaclab.bat -p scripts/rsl_rl/view_reference_motion.py --record_video --clip_index 0 --robot k1
+#   isaaclab.bat -p scripts/rsl_rl/view_reference_motion.py --record_video --clip_index 0 --robot h1
 #
 # List clip indices without launching sim (plain python only — do not use isaaclab.bat):
 #   python scripts/rsl_rl/view_reference_motion.py --list_clips_only --reference_motion_path ... --max_list 50
@@ -92,10 +92,10 @@ def main() -> None:
     from isaaclab.app import AppLauncher
 
     parser = argparse.ArgumentParser(
-        description="Preview reference motion in Isaac Lab (K1/H1) without training or a policy.",
+        description="Preview reference motion in Isaac Lab without training or a policy.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--robot", type=str, choices=["h1", "k1"], default="k1")
+    parser.add_argument("--robot", type=str, choices=["h1"], default="h1")
     parser.add_argument("--reference_motion_path", type=str, default=None, help="Joblib PKL (dict of clips).")
     parser.add_argument("--clip_index", type=int, default=0, help="Which motion in sorted PKL key order (0-based).")
     parser.add_argument(
@@ -157,12 +157,8 @@ def main() -> None:
     from neural_wbc.core.modes import NeuralWBCModes
     from neural_wbc.isaac_lab_wrapper.neural_wbc_env import NeuralWBCEnv
     from neural_wbc.isaac_lab_wrapper.neural_wbc_env_cfg_h1 import NeuralWBCEnvCfgH1
-    from neural_wbc.isaac_lab_wrapper.neural_wbc_env_cfg_k1 import NeuralWBCEnvCfgK1
 
-    if args_cli.robot == "k1":
-        env_cfg = NeuralWBCEnvCfgK1(mode=NeuralWBCModes.TEST)
-    else:
-        env_cfg = NeuralWBCEnvCfgH1(mode=NeuralWBCModes.TEST)
+    env_cfg = NeuralWBCEnvCfgH1(mode=NeuralWBCModes.TEST)
 
     env_cfg.scene.num_envs = 1
     env_cfg.scene.env_spacing = 4.0

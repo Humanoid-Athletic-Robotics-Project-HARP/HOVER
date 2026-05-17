@@ -21,14 +21,14 @@ def main() -> int:
         "--glob",
         dest="glob_pattern",
         default="",
-        help="If set, pick newest matching child dir under parent (e.g. teacher_k1/*/events*)",
+        help="If set, pick newest matching child dir under parent (e.g. teacher_h1/*/events*)",
     )
     args = p.parse_args()
 
     logdir = args.logdir
     if logdir is None:
-        # default: newest run under scripts/rsl_rl/logs/teacher_k1
-        root = Path(__file__).resolve().parent / "logs" / "teacher_k1"
+        # default: newest run under scripts/rsl_rl/logs/teacher_h1
+        root = Path(__file__).resolve().parent / "logs" / "teacher_h1"
         runs = sorted(root.glob("*"), key=lambda x: x.stat().st_mtime, reverse=True)
         runs = [r for r in runs if r.is_dir() and any(r.glob("events.out.tfevents*"))]
         if not runs:

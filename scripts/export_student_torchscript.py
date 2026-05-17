@@ -1,11 +1,11 @@
-"""Export a trained HOVER student policy to TorchScript for deployment via booster_deploy.
+"""Export a trained HOVER student policy to TorchScript for deployment.
 
 Usage:
     python scripts/export_student_torchscript.py \
-        --student_path logs/student_k1/<FOLDER> \
+        --student_path logs/student_h1/<FOLDER> \
         --student_checkpoint model_<ITER>.pt \
-        --output k1_hover_student.pt \
-        --robot k1
+        --output h1_hover_student.pt \
+        --robot h1
 """
 
 import argparse
@@ -33,16 +33,16 @@ def main():
     parser = argparse.ArgumentParser(description="Export HOVER student policy to TorchScript")
     parser.add_argument("--student_path", type=str, required=True, help="Path to student training folder")
     parser.add_argument("--student_checkpoint", type=str, default=None, help="Checkpoint file (e.g. model_50000.pt)")
-    parser.add_argument("--output", type=str, default="k1_hover_student.pt", help="Output .pt TorchScript file")
-    parser.add_argument("--robot", type=str, choices=["h1", "k1"], default="k1")
+    parser.add_argument("--output", type=str, default="h1_hover_student.pt", help="Output .pt TorchScript file")
+    parser.add_argument("--robot", type=str, choices=["h1"], default="h1")
     args = parser.parse_args()
 
     config_path = os.path.join(args.student_path, "config.json")
     with open(config_path) as f:
         config = json.load(f)
 
-    num_obs = config.get("num_obs", 916 if args.robot == "k1" else 916)
-    num_actions = config.get("num_actions", 22 if args.robot == "k1" else 19)
+    num_obs = config.get("num_obs", 916)
+    num_actions = config.get("num_actions", 19)
 
     student = StudentPolicy(
         num_obs=num_obs,

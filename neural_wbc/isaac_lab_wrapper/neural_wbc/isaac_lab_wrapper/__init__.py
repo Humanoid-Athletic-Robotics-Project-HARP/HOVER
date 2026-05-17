@@ -16,7 +16,7 @@
 
 import gymnasium as gym
 
-from . import neural_wbc_env_cfg_h1, neural_wbc_env_cfg_k1
+from . import neural_wbc_env_cfg_h1
 
 ##
 # Register Gym environments.
@@ -31,11 +31,3 @@ gym.register(
     },
 )
 
-gym.register(
-    id="NeuralWBC-K1-v0",
-    entry_point="neural_wbc.isaac_lab_wrapper.neural_wbc_env:NeuralWBCEnv",
-    disable_env_checker=True,
-    kwargs={
-        "env_cfg_entry_point": neural_wbc_env_cfg_k1.NeuralWBCEnvCfgK1,
-    },
-)

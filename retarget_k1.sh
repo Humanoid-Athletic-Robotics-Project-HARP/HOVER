@@ -3,189 +3,84 @@
 # SPDX-FileCopyrightText: Copyright (c) 2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
-# Retarget AMASS dataset to Booster K1 robot.
-# Analogous to retarget_h1.sh but for the K1 skeleton.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-HOVER_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HUMAN2HUMANOID_DIR="third_party/human2humanoid"
-AMASS_DIR="$HUMAN2HUMANOID_DIR/data/AMASS/AMASS_Complete"
-SMPL_DIR="$HUMAN2HUMANOID_DIR/data/smpl"
-SMPL_MODEL_DIR="$SMPL_DIR/SMPL_python_v.1.1.0/smpl/models"
-AMASS_FILTERED_DIR="$HUMAN2HUMANOID_DIR/data/AMASS/AMASS_Filtered"
-
-check_amass() {
-    if [ -d "$AMASS_DIR" ]; then
-        if find "$AMASS_DIR" -type f -name "*.npz" | grep -q . ; then
-            echo "AMASS dataset is already extracted and ready."
-        elif compgen -G "$AMASS_DIR/*.tar.bz2" > /dev/null || compgen -G "$AMASS_DIR/*.zip" > /dev/null; then
-            echo "Extracting compressed files..."
-            find "$AMASS_DIR" -name "*.tar.bz2" -exec tar -xvjf {} -C "$AMASS_DIR" \;
-            find "$AMASS_DIR" -name "*.zip" -exec unzip -o {} -d "$AMASS_DIR" \;
-        else
-            echo "Please download the AMASS dataset in the 'SMPL + H G' format from https://amass.is.tue.mpg.de/index.html and place it under $AMASS_DIR"
-            exit 1
-        fi
-    else
-        echo "$AMASS_DIR folder does not exist. Please create it and download the AMASS dataset."
-        exit 1
-    fi
-}
-
-check_files_exist() {
-    for file in "$@"; do
-        if [ ! -f "$file" ]; then
-            return 1
-        fi
-    done
-    return 0
-}
-
-check_smpl() {
-    FEMALE_MODEL="$SMPL_MODEL_DIR/basicmodel_f_lbs_10_207_0_v1.1.0.pkl"
-    MALE_MODEL="$SMPL_MODEL_DIR/basicmodel_m_lbs_10_207_0_v1.1.0.pkl"
-    NEUTRAL_MODEL="$SMPL_MODEL_DIR/basicmodel_neutral_lbs_10_207_0_v1.1.0.pkl"
-    MODELS=($FEMALE_MODEL $MALE_MODEL $NEUTRAL_MODEL)
-
-    RENAMED_FEMALE_MODEL="$SMPL_DIR/SMPL_FEMALE.pkl"
-    RENAMED_MALE_MODEL="$SMPL_DIR/SMPL_MALE.pkl"
-    RENAMED_NEUTRAL_MODEL="$SMPL_DIR/SMPL_NEUTRAL.pkl"
-    RENAMED_MODELS=($RENAMED_FEMALE_MODEL $RENAMED_MALE_MODEL $RENAMED_NEUTRAL_MODEL)
-
-    if [ -d "$SMPL_DIR" ]; then
-        if check_files_exist "${RENAMED_MODELS[@]}"; then
-            echo "SMPL files are already available."
-        else
-            if [ -f "$SMPL_DIR/SMPL_python_v.1.1.0.zip" ]; then
-                echo "Extracting SMPL_python_v.1.1.0.zip..."
-                mkdir -p "$SMPL_MODEL_DIR"
-                unzip -o "$SMPL_DIR/SMPL_python_v.1.1.0.zip" -d "$SMPL_DIR"
-
-                if check_files_exist "${MODELS[@]}"; then
-                    echo "Renaming SMPL model files..."
-                    cp "$FEMALE_MODEL" "$RENAMED_FEMALE_MODEL"
-                    cp "$MALE_MODEL" "$RENAMED_MALE_MODEL"
-                    cp "$NEUTRAL_MODEL" "$RENAMED_NEUTRAL_MODEL"
-                else
-                    echo "Error: Required SMPL model files not found after extraction"
-                    exit 1
-                fi
-            else
-                echo "Please download SMPL files from https://download.is.tue.mpg.de/download.php?domain=smpl&sfile=SMPL_python_v.1.1.0.zip and place under $SMPL_DIR"
-                exit 1
-            fi
-        fi
-    else
-        echo "$SMPL_DIR folder does not exist."
-        exit 1
-    fi
-}
-
-prepare_filtered_motions() {
-    local yaml_file=$1
-    if [ -f "$yaml_file" ]; then
-        if [ -d "$AMASS_FILTERED_DIR" ] && [ "$(ls -A $AMASS_FILTERED_DIR)" ]; then
-            rm -rf "$AMASS_FILTERED_DIR"/*
-        fi
-
-        echo "Preparing filtered motions from $yaml_file..."
-        mkdir -p "$AMASS_FILTERED_DIR"
-
-        while IFS= read -r line; do
-            if [[ $line =~ \"(.*)\" ]]; then
-                pattern="${BASH_REMATCH[1]}"
-                if [[ $pattern == *"*"* ]]; then
-                    while IFS= read -r source_file; do
-                        relative_path="${source_file#$AMASS_DIR/}"
-                        target_dir="$AMASS_FILTERED_DIR/$(dirname "$relative_path")"
-                        mkdir -p "$target_dir"
-                        if [ -f "$source_file" ]; then
-                            ln -s "$(realpath "$source_file")" "$target_dir/$(basename "$source_file")"
-                        fi
-                    done < <(find "$AMASS_DIR" -path "$AMASS_DIR/$pattern")
-                else
-                    source_file="$AMASS_DIR/$pattern"
-                    relative_path="${pattern}"
-                    target_dir="$AMASS_FILTERED_DIR/$(dirname "$relative_path")"
-                    mkdir -p "$target_dir"
-                    if [ -f "$source_file" ]; then
-                        ln -s "$(realpath "$source_file")" "$target_dir/$(basename "$source_file")"
-                    fi
-                fi
-            fi
-        done < <(grep -v '^\s*#' "$yaml_file" | grep -o '"[^"]*"')
-    fi
-}
-
-retarget() {
-    echo "Installing retargeting dependencies (offline, no GitHub)..."
-    pip3 install smplx easydict --no-deps --quiet || true
-    pip3 install -e ../smpl_sim_shim --no-deps --quiet || true
-    pip3 install -e phc --no-deps --quiet || true
-    python3 -c "import smpl_sim, smplx, phc, easydict" || { echo "Critical retargeting packages missing. Aborting."; return 1; }
-
-    # Step 1: Fit SMPL shape to K1 proportions
-    echo "Running grad_fit_k1_shape.py..."
-    python3 "$HOVER_ROOT/scripts/data_process/grad_fit_k1_shape.py" || return 1
-
-    # Step 2: Retarget AMASS to K1
-    local amass_dir="data/AMASS/AMASS_Complete"
-    local filtered_amass_dir="data/AMASS/AMASS_Filtered"
-    if [ -d "$filtered_amass_dir" ] && [ "$(ls -A $filtered_amass_dir)" ]; then
-        amass_dir="$filtered_amass_dir"
-        echo "Using filtered motion files from $filtered_amass_dir"
-    fi
-
-    echo "Running grad_fit_k1.py on $amass_dir..."
-    python3 "$HOVER_ROOT/scripts/data_process/grad_fit_k1.py" --amass_root "$amass_dir" || return 1
-
-    return 0
-}
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GRAD_FIT_SCRIPT="$SCRIPT_DIR/scripts/data_process/grad_fit_k1.py"
+H2H_DIR="$SCRIPT_DIR/third_party/human2humanoid"
+AMASS_DIR="$H2H_DIR/data/AMASS/AMASS_Complete"
 
 print_usage() {
-    echo "Usage: $0 [OPTIONS]"
-    echo "Retarget AMASS dataset to Booster K1 robot."
+    echo "Usage: $0 --amass-file <path.npz> [OPTIONS]"
+    echo "       $0 --motions-file <file.yaml> [OPTIONS]"
+    echo "Retarget AMASS motion clips to the Booster K1 robot."
+    echo ""
+    echo "AMASS and SMPL data must already be set up by install_deps.sh."
     echo ""
     echo "Options:"
-    echo "  --motions-file FILE    Specify a YAML file with motion files to process"
+    echo "  --amass-file FILE    Clip path relative to AMASS_Complete (e.g. CMU/13/13_17_poses.npz)"
+    echo "  --motions-file FILE  YAML listing clips to retarget in batch (e.g. cmu_punch.yaml)"
+    echo "  --save-dir DIR       Output directory for .pkl files (default: data/k1/)"
     echo ""
-    echo "Example:"
-    echo "  $0 --motions-file motions.yaml"
+    echo "Examples:"
+    echo "  $0 --amass-file CMU/13/13_17_poses.npz"
+    echo "  $0 --motions-file cmu_punch.yaml --save-dir data/k1/"
 }
 
-YAML_FILE="$HOVER_ROOT/cmu_punch.yaml"
+AMASS_FILE=""
+MOTIONS_YAML=""
+SAVE_DIR="$SCRIPT_DIR/data/k1"
+
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --motions-file)
-            YAML_FILE="$2"
-            shift 2
-            ;;
-        -h|--help)
-            print_usage
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1"
-            print_usage
-            exit 1
-            ;;
+        --amass-file)   AMASS_FILE="$2";   shift 2 ;;
+        --motions-file) MOTIONS_YAML="$2"; shift 2 ;;
+        --save-dir)     SAVE_DIR="$2";     shift 2 ;;
+        -h|--help)      print_usage; exit 0 ;;
+        *)              echo "Unknown option: $1"; print_usage; exit 1 ;;
     esac
 done
 
-check_amass
-check_smpl
-
-if [ -n "$YAML_FILE" ]; then
-    prepare_filtered_motions "$YAML_FILE"
+if [ -z "$AMASS_FILE" ] && [ -z "$MOTIONS_YAML" ]; then
+    echo "Error: provide --amass-file or --motions-file."
+    print_usage
+    exit 1
 fi
 
-echo "Move to $HUMAN2HUMANOID_DIR"
-pushd $HUMAN2HUMANOID_DIR
+mkdir -p "$SAVE_DIR"
 
-retarget
-if [ $? -ne 0 ]; then
-    echo "Motion retargeting failed."
-else
-    echo "Motion retargeting finished. Find the retargeted dataset at $HUMAN2HUMANOID_DIR/data/k1/amass_all.pkl."
+if [ -n "$AMASS_FILE" ]; then
+    _stem=$(echo "$AMASS_FILE" | tr '/' '_' | sed 's/\.npz$//')
+    _out="$SAVE_DIR/${_stem}.pkl"
+    echo ">>> $AMASS_FILE → $_out"
+    python3 "$GRAD_FIT_SCRIPT" \
+        --amass_file  "$AMASS_FILE" \
+        --amass_root  "$AMASS_DIR" \
+        --save_path   "$_out"
+    exit 0
 fi
 
-popd
+if [ ! -f "$MOTIONS_YAML" ]; then
+    echo "Motions file not found: $MOTIONS_YAML"
+    exit 1
+fi
+
+_yaml_stem=$(basename "$MOTIONS_YAML" .yaml)
+_combined_pkl="$SAVE_DIR/${_yaml_stem}.pkl"
+
+python3 "$GRAD_FIT_SCRIPT" \
+    --motions_file "$MOTIONS_YAML" \
+    --amass_root   "$AMASS_DIR" \
+    --save_path    "$_combined_pkl"
+
+echo "All done. Output: $_combined_pkl"

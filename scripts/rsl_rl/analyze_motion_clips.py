@@ -36,7 +36,7 @@ def _default_motion_path() -> str:
     return str(p)
 
 
-def _default_k1_mjcf() -> str:
+def _default_mjcf() -> str:
     try:
         from neural_wbc.data import get_data_path
 
@@ -181,7 +181,7 @@ def main() -> None:
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     parser.add_argument("--motion_path", type=str, default=None, help="Path to joblib PKL (dict of clips).")
-    parser.add_argument("--k1_mjcf", type=str, default=None, help="K1 MJCF for FK / runtime ref (default: data path).")
+    parser.add_argument("--mjcf", type=str, default=None, help="MJCF for FK / runtime ref (default: data path).")
     parser.add_argument("--max_clips", type=int, default=None, help="Only process first N keys (stable sort by key).")
     parser.add_argument("--csv", type=str, default=None, help="Write CSV summary path.")
     parser.add_argument("--fk", action="store_true", help="Run Humanoid_Batch FK subsample (retarget frame).")
@@ -207,7 +207,7 @@ def main() -> None:
         nargs=4,
         default=[0.5, 0.5, 0.5, 0.5],
         metavar=("W", "X", "Y", "Z"),
-        help="wxyz quaternion for runtime_ref (K1 default).",
+        help="wxyz quaternion for runtime_ref.",
     )
     args = parser.parse_args()
 
@@ -226,9 +226,9 @@ def main() -> None:
         keys = keys[: args.max_clips]
     print(f"[INFO] Clips to process: {len(keys)}")
 
-    k1_mjcf = os.path.abspath(args.k1_mjcf or _default_k1_mjcf())
-    if not os.path.isfile(k1_mjcf):
-        print(f"[WARN] K1 MJCF not found at {k1_mjcf}; --fk / --runtime_ref need a valid path.")
+    mjcf_path = os.path.abspath(args.mjcf or _default_mjcf())
+    if not os.path.isfile(mjcf_path):
+        print(f"[WARN] MJCF not found at {mjcf_path}; --fk / --runtime_ref need a valid path.")
 
     hb = None
     if args.fk:
@@ -236,7 +236,7 @@ def main() -> None:
         import torch
         from phc.utils.torch_h1_humanoid_batch import Humanoid_Batch
 
-        hb = Humanoid_Batch(mjcf_file=k1_mjcf, extend_hand=False, extend_head=False, device=torch.device(args.device))
+        hb = Humanoid_Batch(mjcf_file=mjcf_path, extend_hand=False, extend_head=False, device=torch.device(args.device))
 
     rows = []
     runtime_keys = keys
@@ -254,7 +254,7 @@ def main() -> None:
                     runtime_ref_height_stats(
                         clip,
                         key,
-                        k1_mjcf,
+                        mjcf_path,
                         tuple(args.fk_frame_rotation),
                         args.policy_dt,
                         args.device,
