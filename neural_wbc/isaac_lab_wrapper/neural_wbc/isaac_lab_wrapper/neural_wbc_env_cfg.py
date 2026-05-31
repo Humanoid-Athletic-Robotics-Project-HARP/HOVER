@@ -52,7 +52,15 @@ class NeuralWBCEnvCfg(DirectRLEnvCfg):
     distill_mask_sparsity_randomization_enabled: bool = MISSING
 
     # simulation
-    sim: SimulationCfg = SimulationCfg(dt=dt, render_interval=decimation, physx=PhysxCfg(bounce_threshold_velocity=0.2))
+    sim: SimulationCfg = SimulationCfg(
+        dt=dt,
+        render_interval=decimation,
+        physx=PhysxCfg(
+            bounce_threshold_velocity=0.01,
+            enable_external_forces_every_iteration=True,
+            friction_offset_threshold=0.01,
+        ),
+    )
 
     # terrain
     terrain = rough_terrain
@@ -76,6 +84,13 @@ class NeuralWBCEnvCfg(DirectRLEnvCfg):
     extend_body_parent_names: list[str] = []
     extend_body_names: list[str] = []
     extend_body_pos: list[list[float]] = []
+
+    # Whether to pass extend_hand / extend_head to MotionLibH1.
+    # Set False for robots whose pkl pose_aa does NOT include virtual hand/head joints
+    # (e.g. K1) so the FK does not crash. The sim-side extend bodies still work
+    # because they are computed from extend_body_parent_names / extend_body_pos.
+    motion_lib_extend_hand: bool = True
+    motion_lib_extend_head: bool = True
 
     # control type: the action type from the policy
     # "Pos": target joint pos, "Vel": target joint vel, "Torque": joint torques

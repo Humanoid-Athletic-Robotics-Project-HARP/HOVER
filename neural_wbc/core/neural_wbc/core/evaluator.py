@@ -249,8 +249,13 @@ class MotionTrackingMetrics:
     ):
         """Compute metrics of trajectories and save them by their means and number of elements (as weights)."""
         # compute_metrics_lite expects list of numpy arrays
-        body_pos_np = [body_pos_i.numpy() for body_pos_i in body_pos]
-        body_pos_gt_np = [body_pos_gt_i.numpy() for body_pos_gt_i in body_pos_gt]
+        # Align body count to the smaller set (e.g. K1 sim has virtual bodies, ref does not).
+        body_pos_np = []
+        body_pos_gt_np = []
+        for b, b_gt in zip(body_pos, body_pos_gt):
+            n = min(b.shape[1], b_gt.shape[1])
+            body_pos_np.append(b[:, :n, :].numpy())
+            body_pos_gt_np.append(b_gt[:, :n, :].numpy())
         metrics = compute_metrics_lite(body_pos_np, body_pos_gt_np)
         for key, value in metrics.items():
             self._record_metrics(key, np.mean(value).item(), value.size, storage)
@@ -588,16 +593,17 @@ class Evaluator:
         num_envs, num_bodies, _ = body_pos.shape
 
         mask = info["data"]["mask"]
-        body_mask = mask[:, :num_bodies]
-        body_mask = body_mask.unsqueeze(-1)
-        body_mask_expanded = body_mask.expand(num_envs, num_bodies, 3)
+        body_mask = mask[:, :num_bodies].unsqueeze(-1).expand(num_envs, num_bodies, 3)
+
+        gt_num_bodies = ground_truth_data["body_pos"].shape[1]
+        gt_body_mask = mask[:, :gt_num_bodies].unsqueeze(-1).expand(num_envs, gt_num_bodies, 3)
 
         upper_body_joint_ids = info["data"]["upper_joint_ids"]
         lower_body_joint_ids = info["data"]["lower_joint_ids"]
 
-        frame = self._build_frame(state_data, body_mask_expanded, num_envs, upper_body_joint_ids, lower_body_joint_ids)
+        frame = self._build_frame(state_data, body_mask, num_envs, upper_body_joint_ids, lower_body_joint_ids)
         frame_gt = self._build_frame(
-            ground_truth_data, body_mask_expanded, num_envs, upper_body_joint_ids, lower_body_joint_ids
+            ground_truth_data, gt_body_mask, num_envs, upper_body_joint_ids, lower_body_joint_ids
         )
 
         self._update_failure_metrics(newly_terminated, info)

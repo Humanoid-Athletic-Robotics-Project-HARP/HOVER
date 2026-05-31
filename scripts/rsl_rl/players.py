@@ -32,6 +32,7 @@ from neural_wbc.core.evaluator import Evaluator
 from neural_wbc.core.modes import NeuralWBCModes
 from neural_wbc.isaac_lab_wrapper.neural_wbc_env import NeuralWBCEnv
 from neural_wbc.isaac_lab_wrapper.neural_wbc_env_cfg_h1 import NeuralWBCEnvCfgH1
+from neural_wbc.isaac_lab_wrapper.neural_wbc_env_cfg_k1 import NeuralWBCEnvCfgK1
 
 from neural_wbc.student_policy import StudentPolicyTrainer, StudentPolicyTrainerCfg
 
@@ -55,6 +56,8 @@ class Player:
             self.student_player = True
         if args_cli.robot == "h1":
             env_cfg = NeuralWBCEnvCfgH1(mode=mode)
+        elif args_cli.robot == "k1":
+            env_cfg = NeuralWBCEnvCfgK1(mode=mode)
         elif args_cli.robot == "gr1":
             raise ValueError("GR1 is not yet implemented")
         env_cfg.scene.num_envs = args_cli.num_envs

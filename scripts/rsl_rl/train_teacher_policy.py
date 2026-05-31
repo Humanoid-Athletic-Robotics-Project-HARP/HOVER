@@ -32,7 +32,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("--num_envs", type=int, default=None, help="Number of environments to simulate.")
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--reference_motion_path", type=str, default=None, help="Path to the reference motion dataset.")
-parser.add_argument("--robot", type=str, choices=["h1", "gr1"], default="h1", help="Robot used in environment")
+parser.add_argument("--robot", type=str, choices=["h1", "gr1", "k1", "k1_aggressive"], default="h1", help="Robot used in environment")
 parser.add_argument(
     "--video",
     action="store_true",
@@ -84,6 +84,7 @@ from vecenv_wrapper import RslRlNeuralWBCVecEnvWrapper
 
 from neural_wbc.isaac_lab_wrapper.neural_wbc_env import NeuralWBCEnv
 from neural_wbc.isaac_lab_wrapper.neural_wbc_env_cfg_h1 import NeuralWBCEnvCfgH1
+from neural_wbc.isaac_lab_wrapper.neural_wbc_env_cfg_k1 import NeuralWBCEnvCfgK1, NeuralWBCEnvCfgK1Aggressive
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -96,6 +97,10 @@ def main():
     # parse configuration
     if args_cli.robot == "h1":
         env_cfg = NeuralWBCEnvCfgH1()
+    elif args_cli.robot == "k1":
+        env_cfg = NeuralWBCEnvCfgK1()
+    elif args_cli.robot == "k1_aggressive":
+        env_cfg = NeuralWBCEnvCfgK1Aggressive()
     elif args_cli.robot == "gr1":
         raise ValueError("GR1 is not yet implemented")
 

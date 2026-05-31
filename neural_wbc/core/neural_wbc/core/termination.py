@@ -165,7 +165,10 @@ def terminate_by_reference_motion_distance(
     """
     body_positions = body_state.body_pos_extend
     reference_positions = ref_motion_state.body_pos_extend
-    num_bodies = body_positions.shape[1]
+    # Align to the smaller set when ref doesn't include virtual extend bodies (e.g. K1).
+    num_bodies = min(body_positions.shape[1], reference_positions.shape[1])
+    body_positions = body_positions[:, :num_bodies, :]
+    reference_positions = reference_positions[:, :num_bodies, :]
     body_mask = mask[:, :num_bodies]
 
     # Calculate the distance between current and reference positions

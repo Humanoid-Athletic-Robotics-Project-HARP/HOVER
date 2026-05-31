@@ -81,7 +81,7 @@ def compute_privileged_observations(env: NeuralWBCEnv, asset: Articulation):
 
     privileged_obs_dict = {
         "base_com_bias": env.base_com_bias.to(env.device),
-        "ground_friction_values": asset.data.joint_friction[:, env.feet_joint_ids],
+        "ground_friction_values": asset.data.joint_friction_coeff[:, env.feet_joint_ids],
         "body_mass_scale": env.body_mass_scale,
         "kp_scale": env.kp_scale,
         "kd_scale": env.kd_scale,

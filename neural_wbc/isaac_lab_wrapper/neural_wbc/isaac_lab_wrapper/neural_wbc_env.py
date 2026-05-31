@@ -219,8 +219,8 @@ class NeuralWBCEnv(DirectRLEnv):
         }
 
         # Load reference motion
-        _extend_hand = len(self.cfg.extend_body_parent_names) > 0
-        _extend_head = len(self.cfg.extend_body_parent_names) > 0
+        _extend_hand = self.cfg.motion_lib_extend_hand
+        _extend_head = self.cfg.motion_lib_extend_head
         self._ref_motion_mgr = ReferenceMotionManager(
             cfg=self.cfg.reference_motion_manager,
             device=self.device,

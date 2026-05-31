@@ -218,6 +218,10 @@ class NeuralWBCRewards:
         """
         body_pos_extend = body_state.body_pos_extend
         ref_body_pos_extend = ref_motion_state.body_pos_extend
+        # Align to the smaller set when ref lacks virtual extend bodies (e.g. K1).
+        _n = min(body_pos_extend.shape[1], ref_body_pos_extend.shape[1])
+        body_pos_extend = body_pos_extend[:, :_n, :]
+        ref_body_pos_extend = ref_body_pos_extend[:, :_n, :]
 
         diff_global_body_pos = ref_body_pos_extend - body_pos_extend
         diff_global_body_pos_lower = diff_global_body_pos[:, :11]
@@ -249,6 +253,10 @@ class NeuralWBCRewards:
         """
         body_pos_extend = body_state.body_pos_extend
         ref_body_pos_extend = ref_motion_state.body_pos_extend
+        # Align to the smaller set when ref lacks virtual extend bodies (e.g. K1).
+        _n = min(body_pos_extend.shape[1], ref_body_pos_extend.shape[1])
+        body_pos_extend = body_pos_extend[:, :_n, :]
+        ref_body_pos_extend = ref_body_pos_extend[:, :_n, :]
 
         diff_global_body_pos = ref_body_pos_extend - body_pos_extend
         diff_global_body_pos_vr_key_points = diff_global_body_pos[:, -3:]
