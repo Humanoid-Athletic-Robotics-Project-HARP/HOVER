@@ -1,0 +1,8 @@
+{
+    "num_obs": 222,
+    "num_student_obs": 222,
+    "num_actions": 22,
+    "policy_hidden_dims": [512, 256, 128],
+    "activation": "elu",
+    "noise_std": 0.001
+}
